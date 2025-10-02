@@ -1,0 +1,237 @@
+# Google Colab ready code to generate template bank files for polynomial template bank Jerk search Pipeline PULSEJET_beta and check plots for empirical coverage and mismatch. 
+# If you plan to use the large-bank path, uncomment the pip install:
+# !pip -q install emcee
+--------------------------------------------------------------------------------------------------------------------------------
+## Uses two methods 1. Metropolis Hastings based generator 2. emcee generator 
+## For very large template banks, switch to emcee generator by switching "use_emcee = False" to True. 
+--------------------------------------------------------------------------------------------------------------------------------- 
+import numpy as np
+import sympy as sy
+import math
+import matplotlib.pyplot as plt
+
+np.random.seed(1)
+
+# ===== User parameters =====
+f        = 230.0      # Hz
+T        = 600.0      # s
+a_max    = 150.0      # m/s^2
+j_max    = 30.0       # m/s^3
+coverage = 0.90       # desired coverage
+mismatch = 0.30       # target μ
+nmc      = 200_000    # MC samples for volume estimate
+pad_frac = 0.15       # edge padding for generation
+c        = 3.0e8
+
+# Choose sampler: emcee for large banks, independence-MH for small banks
+use_emcee = False
+
+# If you want to force a specific template count (skip volume->N), set this to an int; else None:
+force_N_templates = None
+
+# Output file (stays in Colab "Files" pane)
+outfile = "templates_aj_emcee.txt"
+
+# %% [Cell 2] — Phase model → Fisher metric → Schur projection onto (a,j)
+# φ(t) = 2π f [ t - a t^2/(2c) - j t^3/(6c) ]
+asym, jsym, tsym, Tsym, csym, fsym = sy.symbols('a j t T c f', real=True)
+phi_sym = 2*sy.pi*fsym*(tsym - asym*tsym**2/(2*csym) - jsym*tsym**3/(6*csym))
+
+def tavg(expr):
+    return (1/Tsym) * sy.integrate(expr, (tsym, 0, Tsym))
+
+theta3 = [fsym, asym, jsym]
+g3 = sy.Matrix(3, 3, lambda i,j: tavg(sy.diff(phi_sym,theta3[i])*sy.diff(phi_sym,theta3[j]))
+                              - tavg(sy.diff(phi_sym,theta3[i]))*tavg(sy.diff(phi_sym,theta3[j])))
+
+# Schur complement to eliminate f
+g_ff  = g3[0,0]
+g_fa  = g3[0,1]; g_fj = g3[0,2]
+g_af  = g3[1,0]; g_jf = g3[2,0]
+g_aa  = g3[1,1]; g_aj = g3[1,2]; g_jj = g3[2,2]
+
+g_taa = sy.simplify(g_aa - g_af*g_fa/g_ff)
+g_taj = sy.simplify(g_aj - g_af*g_fj/g_ff)
+g_tjj = sy.simplify(g_jj - g_jf*g_fj/g_ff)
+
+# Lambdas for numeric eval
+f_g_taa = sy.lambdify([asym, jsym, fsym, Tsym, csym], g_taa, 'numpy')
+f_g_taj = sy.lambdify([asym, jsym, fsym, Tsym, csym], g_taj, 'numpy')
+f_g_tjj = sy.lambdify([asym, jsym, fsym, Tsym, csym], g_tjj, 'numpy')
+
+def sqrt_det_projected(a, j, f=f, T=T, c=c):
+    gaa = f_g_taa(a, j, f, T, c)
+    gaj = f_g_taj(a, j, f, T, c)
+    gjj = f_g_tjj(a, j, f, T, c)
+    det = gaa*gjj - gaj*gaj
+    return np.sqrt(np.maximum(det, 0.0))
+
+def sqrt_det_vec(a_arr, j_arr):
+    return sqrt_det_projected(a_arr, j_arr)
+
+# %% [Cell 3] — Proper volume & N_templates (dim=2 stochastic coverage)
+def estimate_volume(a_max, j_max, nmc):
+    a = (2*np.random.rand(nmc)-1) * a_max
+    j = (2*np.random.rand(nmc)-1) * j_max
+    s = sqrt_det_vec(a, j)
+    return s.mean() * (2*a_max)*(2*j_max)
+
+volume = estimate_volume(a_max, j_max, nmc)
+V_ball_2d = math.pi  # unit 2-ball area
+
+if force_N_templates is None:
+    N_templates = int(round(math.log(1-coverage) / math.log(1 - (mismatch**(2/2))*V_ball_2d/volume)))
+else:
+    N_templates = int(force_N_templates)
+
+N_templates = max(N_templates, 1)
+print(f"[volume] {volume:.3e}")
+print(f"[count ] N_templates ≈ {N_templates}")
+
+# %% [Cell 4] — Boxes (padded for generation, trimmed for final bank)
+a_lo_gen = -(1+pad_frac)*a_max; a_hi_gen = (1+pad_frac)*a_max
+j_lo_gen = -(1+pad_frac)*j_max; j_hi_gen = (1+pad_frac)*j_max
+
+def inside_target(a, j):
+    return (-a_max <= a <= a_max) and (-j_max <= j <= j_max)
+
+# %% [Cell 5] — Small-bank path: Independence MH (global proposals)
+def draw_independence_MH(N, burn_in=200):
+    def propose():
+        return (np.random.uniform(a_lo_gen, a_hi_gen),
+                np.random.uniform(j_lo_gen, j_hi_gen))
+
+    # init at valid point
+    while True:
+        a_curr, j_curr = propose()
+        p_curr = sqrt_det_projected(a_curr, j_curr)
+        if p_curr > 0:
+            break
+
+    acc = []
+    while len(acc) < N + burn_in:
+        a_prop, j_prop = propose()
+        p_prop = sqrt_det_projected(a_prop, j_prop)
+        if p_prop <= 0:  # reject degenerate
+            continue
+        alpha = min(1.0, p_prop / p_curr)  # q cancels (independence)
+        if np.random.rand() < alpha:
+            a_curr, j_curr, p_curr = a_prop, j_prop, p_prop
+            if inside_target(a_curr, j_curr):
+                acc.append((a_curr, j_curr))
+    return np.array(acc[burn_in:])
+
+# %% [Cell 6] — Large-bank path: emcee (Goodman–Weare)
+def draw_emcee(N):
+    import emcee
+
+    # log-posterior: uniform within padded box; ∝ sqrt(det) else -inf
+    def log_prob(theta):
+        a, j = theta
+        if not (a_lo_gen < a < a_hi_gen and j_lo_gen < j < j_hi_gen):
+            return -np.inf
+        val = sqrt_det_projected(a, j)
+        if val <= 0 or not np.isfinite(val):
+            return -np.inf
+        return np.log(val)
+
+    ndim = 2
+    # heuristic: walkers ~ 200–1000; steps set to achieve ~N after trimming
+    nwalkers = min(max(200, N//20), 1000)  # between 200 and 1000
+    # initialize walkers uniformly in padded box
+    p0 = np.column_stack([
+        np.random.uniform(a_lo_gen, a_hi_gen, nwalkers),
+        np.random.uniform(j_lo_gen, j_hi_gen, nwalkers)
+    ])
+
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_prob)
+    # burn-in
+    state = sampler.run_mcmc(p0, 200, progress=False)
+    sampler.reset()
+    # main
+    steps = max( int(np.ceil(1.5 * N / nwalkers)), 50)
+    sampler.run_mcmc(state, steps, progress=False)
+    chain = sampler.get_chain(flat=True)  # (nwalkers*steps, 2)
+
+    # keep only templates inside the target (trim padding)
+    inside = ( (chain[:,0] >= -a_max) & (chain[:,0] <= a_max)
+             & (chain[:,1] >= -j_max) & (chain[:,1] <= j_max) )
+    bank = chain[inside]
+    if len(bank) < N:
+        # If we’re a bit short, top-up by re-running a few extra steps
+        extra_steps = max(int( np.ceil((N - len(bank))/nwalkers ) ), 25)
+        sampler.run_mcmc(None, extra_steps, progress=False)
+        chain2 = sampler.get_chain(flat=True)
+        inside2 = ( (chain2[:,0] >= -a_max) & (chain2[:,0] <= a_max)
+                  & (chain2[:,1] >= -j_max) & (chain2[:,1] <= j_max) )
+        bank = np.vstack([bank, chain2[inside2]])
+    # random subset to exact size
+    if len(bank) > N:
+        idx = np.random.choice(len(bank), N, replace=False)
+        bank = bank[idx]
+    return bank
+
+# %% [Cell 7] — Build the bank
+if use_emcee:
+    templates = draw_emcee(N_templates)
+else:
+    templates = draw_independence_MH(N_templates, burn_in=200)
+
+print(f"[bank  ] {len(templates)} templates")
+
+np.savetxt(outfile, templates, fmt="%.6e", header="a  j", comments="")
+print(f"[file ] wrote {outfile}")
+
+# %% [Cell 8] — Empirical coverage diagnostics (no KD-tree)
+def nearest_mismatch_at(a0, j0, bank):
+    gaa = f_g_taa(a0, j0, f, T, c)
+    gaj = f_g_taj(a0, j0, f, T, c)
+    gjj = f_g_tjj(a0, j0, f, T, c)
+    da = bank[:,0] - a0
+    dj = bank[:,1] - j0
+    return np.min(gaa*da*da + 2*gaj*da*dj + gjj*dj*dj)
+
+# Random points coverage
+Mtest = 1000
+atest = (2*np.random.rand(Mtest)-1)*a_max
+jtest = (2*np.random.rand(Mtest)-1)*j_max
+mmins = np.array([nearest_mismatch_at(atest[k], jtest[k], templates) for k in range(Mtest)])
+coverage_emp = (mmins <= mismatch).mean()
+print(f"[cover] empirical coverage ≈ {coverage_emp:.3f} (μ={mismatch})")
+
+# Histogram
+plt.figure(figsize=(6,4))
+plt.hist(mmins, bins=60, density=True, alpha=0.9)
+plt.axvline(mismatch, linestyle='--', label='μ target')
+plt.xlabel("Nearest-template mismatch m")
+plt.ylabel("Density")
+plt.legend()
+plt.title("Nearest mismatch histogram")
+plt.show()
+
+# Scatter (visual density)
+plt.figure(figsize=(6,5))
+plt.scatter(templates[:,0], templates[:,1], s=6, alpha=0.6)
+plt.xlabel("a (m/s²)")
+plt.ylabel("j (m/s³)")
+plt.title(f"Template distribution ({'emcee' if use_emcee else 'indep. MH'})")
+plt.show()
+
+# Exact coarse coverage map
+Na, Nj = 60, 60
+a_lin = np.linspace(-a_max, a_max, Na)
+j_lin = np.linspace(-j_max, j_max, Nj)
+Mmap = np.empty((Na, Nj))
+for ia, a0 in enumerate(a_lin):
+    for jb, j0 in enumerate(j_lin):
+        Mmap[ia, jb] = nearest_mismatch_at(a0, j0, templates)
+
+plt.figure(figsize=(6,5))
+plt.imshow(Mmap.T, origin='lower',
+           extent=[-a_max, a_max, -j_max, j_max], aspect='auto',
+           vmin=0, vmax=mismatch*2)
+plt.colorbar(label="Nearest-template mismatch m")
+plt.xlabel("a (m/s²)")
+plt.ylabel("j (m/s³)")
+plt.title("a–j coverage (exact, coarse grid)")
+plt.show()
