@@ -9,10 +9,10 @@ $\phi(t)=2\pi f\left(t - \frac{a t^2}{2c} - \frac{j t^3}{6c}\right)$
 Just copy paste the generator code and adjust the parameters as required.
 
 # ===== User parameters =====
-f        = 230.0      # Hz
-T        = 600.0      # s
-a_max    = 150.0      # m/s^2
-j_max    = 30.0       # m/s^3
+f        = 230.0      # Hz (spin frequency of the pulsar)
+T        = 600.0      # s  (Length of the observation file)
+a_max    = 150.0      # m/s^2  (max_acceleration you want to account for goes from +a_max to -a_max)
+j_max    = 30.0       # m/s^3  (max_Jerk you want to account for goes from +j_max to -j_max)
 coverage = 0.90       # desired coverage
 mismatch = 0.30       # target μ
 nmc      = 200_000    # MC samples for volume estimate
