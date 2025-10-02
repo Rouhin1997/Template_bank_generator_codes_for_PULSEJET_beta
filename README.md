@@ -6,6 +6,46 @@ It uses the acceleration and Jerk phase space model
 $\phi(t)=2\pi f\left(t - \frac{a t^2}{2c} - \frac{j t^3}{6c}\right)$
 
 
+What the code does (briefly)
+
+Build the metric from the phase model
+Compute the 2×2 projected metric on 
+(
+𝑎
+,
+𝑗
+)
+(a,j). Its determinant defines a local volume element; larger values mean we need denser templates there.
+
+Estimate proper volume & template count
+Monte-Carlo over the 
+(
+𝑎
+,
+𝑗
+)
+(a,j) box gives the proper volume. Using your target coverage and mismatch, the code estimates how many templates you need.
+
+Generate the bank (two interchangeable samplers)
+
+Metropolis–Hastings (independence sampler):
+Proposes points uniformly in a slightly padded box and accepts them in proportion to the local density derived from the metric. Trims to the target box.
+Simple and fast for small/medium banks.
+
+emcee ensemble sampler:
+Runs a Goodman–Weare affine-invariant MCMC with a log-density from the metric. Produces many low-correlation samples efficiently, then downsamples to the exact size.
+Robust and scalable for large banks.
+
+Validate coverage
+The notebook checks nearest-template mismatch on random test points and plots a coarse coverage map—so you can see if the bank meets your mismatch goal and whether edges are covered well.
+
+When to use which sampler
+
+Use Metropolis–Hastings for light banks (roughly ≤ 20k templates). It’s lightweight, dependency-free, and converges quickly with global proposals.
+
+Use emcee for larger banks (≫ 20k). The ensemble sampler explores the density more efficiently and yields better-mixed samples with fewer tuning knobs.
+
+
 Just copy paste the generator code and adjust the parameters as required.
 
 # ===== User parameters =====
