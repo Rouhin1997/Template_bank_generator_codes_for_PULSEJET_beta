@@ -220,3 +220,62 @@ bound. **CI run:** https://github.com/Rouhin1997/Template_bank_generator_codes_f
 commit `f35e2d0cb7ad5cd71987496bf872fddf523e2343`, **success**
 (18 mathematical, generator and interface tests). GPU search and
 independent recovered-candidate folding remain pending.
+
+
+## 2026-10-27 — Actual HPC Python 3.12 environment, bank export and 18-test PASS
+
+The user installed/cloned branch `dev/midpoint-metric-bank` into
+`/home/rnag/PULSEJET_validation/PULSEJET_templatebank_source` on
+`node3`. The system default `python3` is **3.6.8**, which failed the
+initial test import (`dataclasses` unavailable) and old subprocess
+signature (`capture_output` unsupported). This was strictly an
+interpreter-version incompatibility, not a metric-test failure. The
+cluster provides module `python/3.12.4` (and an existing INCEPTION SIF
+with Python 3.10.12); with the newer module, the user ran:
+
+```bash
+python3 -m unittest discover -s tests -v
+# Ran 18 tests in 1.087s -- OK
+
+mkdir -p outputs
+python3 -m pulsejet_bank \
+  --frequency-hz 383 \
+  --duration-s 505.2902701172523 \
+  --a-min -255 --a-max -215 \
+  --j-min -0.4 --j-max 0.25 \
+  --mismatch 0.30 --method grid \
+  --output outputs/w3_i15_reference.txt \
+  --report outputs/w3_i15_reference.json
+```
+
+**Actual node3 generated-bank report and checks:**
+- `template_count=12`, grid `[4,3]`, `wc -l=12`.
+- SHA256 of generated two-column file:
+  `969af3da3f5a271d36af4ed98808a6d68337592eaa1d127a5159faf95a02a29f`.
+- `g_aa=0.005833740739556459`, `g_aj=0.0`,
+  `g_jj=10.639003698942455`.
+- `proper_area=6.477350382016185`.
+- Global maximum **quadratic metric** mismatch in this grid:
+  `0.2707040480112222`, below design limit `0.30`.
+- **1000/1000** random challenge points within metric tolerance;
+  max sampled mismatch `0.2665962040237954`,
+  median `0.08636815116489935`, p90 `0.16744257250259484`,
+  p99 `0.22896659134821631`. Four corner worst metric
+  mismatch `0.2707040480112222`.
+- Exactly two header-free float columns: a={−250,−240,−230,−220}
+  m/s² and j={−0.29166666666666669,−0.075000000000000011,
+  +0.14166666666666672} m/s³, each combination.
+- W3/I15 injection truth (a,j)=(−235,−0.25) is **off grid**;
+  two closest cells a=−240 and −230 with j≈−0.2916667,
+  each with predicted leading-order coherent-power metric mismatch
+  `0.16431401102179768`.
+
+**Conclusion:** validated source and full 12-row bank generation on the
+target HPC node; the FFT-midpoint epoch convention is explicit and
+compatible with PULSEJET's polynomial timing source. **Not yet** a
+generated-bank GPU detection or measured search-S/N mismatch. Next
+step: PULSEJET searches exact generated file using the prior centered
+8,388,608-sample W3/I15 segment, DM8, old-image frequency-bound
+workaround and previously measured matched-template S/N 36.15.
+Do not overinterpret 1,000/1,000 metric challenge coverage as actual
+astrophysical recovery completeness.
