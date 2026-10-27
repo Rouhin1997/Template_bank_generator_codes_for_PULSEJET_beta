@@ -279,3 +279,20 @@ step: PULSEJET searches exact generated file using the prior centered
 workaround and previously measured matched-template S/N 36.15.
 Do not overinterpret 1,000/1,000 metric challenge coverage as actual
 astrophysical recovery completeness.
+
+
+## 2026-10-27 — FIRST externally generated 12-template bank recovered W3/I15 on GPU (PASS)
+
+On `node3`, user ran PULSEJET `scripts/run_m62_w3_i15_generated_bank_integration.sh` against the real MeerKAT W3 observational filterbank containing our existing injections, using the **actual generator output** SHA256 `969af3da3f5a271d36af4ed98808a6d68337592eaa1d127a5159faf95a02a29f` and no hardcoded replacement or injected truth row. All 12 bank rows passed strict SHA/JSON/format checks before passing to the pinned PULSEJET GPU SIF.
+
+- Search: DM8 fixed; `start_sample=3216372`, `nsamples=fft_size=8388608`, duration `505.2902701172523 s`; W3/I15 truth f=383Hz, a=−235m/s², j=−0.25m/s³; old SIF PeakFinder workaround requested min187 max395Hz.
+- **Execution: success/exit0, A40 GPUs recognized, all 12 polynomial templates resampled, 18s external wall**. Raw spectral detections **244 →47 after per-template harmonic distillation →4 after bank distillation/final**, 44 nested associations.
+- **Top recovered candidate:** f=`383.000153 Hz`, DM8, `a=−230 m/s²`, `j≈−0.2916666567 m/s³` (XML float representation), **search S/N 25.15**, `nh=3`, 11 nested associations. Frequency error +0.000153Hz ≈0.077 Fourier bins. The truth `(-235,-0.25)` is absent from the bank; nearest metric-distance points are `(-230,-0.2916667)` and `(-240,-0.2916667)`, both with `mu_pred=0.164314011022`. Thus this **passes first off-grid bank-generation + PULSEJET C++ two-column reader + GPU full-pipeline injection recovery**.
+- Single-template exact-motion control on the same W3 observation/segment/DM had search S/N **36.15**. Off-grid ratio **25.15/36.15 = 0.6956**, **observed spectral-S/N reduction 30.44%**. This is **not** a direct observation of 30.44% coherent power mismatch, nor a failure of the metric-predicted **16.43% fundamental quadratic coherent-power** mismatch. Candidate `nh=3` corresponds to an **8-harmonic summing stage** in `PULSEJET_beta/src/kernels.cu` (harmonic stages contain 2,4,8,16... harmonics). Higher harmonics experience much stronger residual phase distortion.
+
+**Independent coherent-phase model check for the chosen off-grid offset** `Δa=5 m/s²`, `Δj=−1/24 m/s³`, f=383Hz, T=505.29027s: frequency-projected complex-coherence power losses about **0.1518 at fundamental**, **0.4836 at 2nd harmonic**, **0.7708 at 3rd**, **0.9155 at 4th**. This helps explain why the 8-harmonic spectral search statistic need not track fundamental quadratic `mu_pred=0.1643`. Phase models do not account for PULSEJET resampling, harmonic weighting, RFI, finite frequency binning or normalization. A physics-grounded **harmonic-aware mismatch objective** may be useful later, once controlled S/N-vs-mismatch experiments quantify sensitivity.
+
+**Reproducibility:** source and results recorded also in `PULSEJET_beta/docs/paper/PULSEJET_VALIDATION_LOG.md` (commit `bf9276877d54440ea1f6d1c53be35b581c2ebfda`). GPU data at
+`/home/rnag/PULSEJET_validation/stage8_m62_generated_bank/w3_i15_dm8_generated_grid12_center8m_v1/overview.xml`, corresponding `.log`, `_provenance.txt`. The existing W3 injected `.fil`, generated bank, original legacy generator, PULSEJET source/kernels, third-party distillers and pinned image were **not** edited for this experiment.
+
+**Next:** isolate the two nearest templates with single-template GPU controls, check possible harmonic-level effects on template tolerance, and then expand to a common envelope/DM grid with injected truths deliberately off-grid. No broad completeness claim yet.
