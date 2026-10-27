@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pulsejet-midpoint-bank"
+version = "0.1.0"
+description = "Verified midpoint metric bank generator for PULSEJET_beta polynomial acceleration and jerk searches"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+pulsejet-bank = "pulsejet_bank.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["pulsejet_bank*"]
