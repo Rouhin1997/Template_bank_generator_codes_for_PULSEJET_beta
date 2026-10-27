@@ -1,0 +1,31 @@
+name: Validate metric bank
+
+on:
+  push:
+    branches: [main, dev/midpoint-metric-bank]
+  pull_request:
+
+jobs:
+  cpu-tests:
+    name: Analytical, numerical and export tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Python syntax validation
+        run: python -m compileall -q pulsejet_bank tests
+      - name: Unit and numerical tests
+        run: python -m unittest discover -s tests -v
+      - name: End-to-end CLI smoke test
+        run: |
+          python -m pulsejet_bank \
+            --frequency-hz 383 \
+            --duration-s 505.2902701172523 \
+            --a-min -255 --a-max -215 \
+            --j-min -0.4 --j-max 0.25 \
+            --mismatch 0.30 --method grid \
+            --output /tmp/test_bank_aj.txt \
+            --report /tmp/test_bank_report.json
+          python -c 'import pathlib; p=pathlib.Path("/tmp/test_bank_aj.txt"); assert all(len(x.split())==2 for x in p.read_text().splitlines())'
