@@ -29,3 +29,14 @@ jobs:
             --output /tmp/test_bank_aj.txt \
             --report /tmp/test_bank_report.json
           python -c 'import pathlib; p=pathlib.Path("/tmp/test_bank_aj.txt"); assert all(len(x.split())==2 for x in p.read_text().splitlines())'
+      - name: Independent coherent-power science benchmark
+        run: python scripts/reference_coherence_validation.py --output /tmp/reference_coherence.json
+      - name: Preserve generated bank and numerical validation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: midpoint-bank-reference
+          retention-days: 90
+          path: |
+            /tmp/test_bank_aj.txt
+            /tmp/test_bank_report.json
+            /tmp/reference_coherence.json
