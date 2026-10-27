@@ -144,3 +144,55 @@ the saved numerical report. Do not mark as tested before checking.
 **Do not conflate:** metric coverage, returned candidate fraction,
 pipeline search S/N, folded significance, and astrophysical
 flux-density completeness.
+
+
+## 2026-10-27 — Benchmark import failure, correction and final green CI
+
+**Failure records (retained intentionally):**
+- https://github.com/Rouhin1997/Template_bank_generator_codes_for_PULSEJET_beta/actions/runs/40497974934 (`5e6a0a3d12`)
+- https://github.com/Rouhin1997/Template_bank_generator_codes_for_PULSEJET_beta/actions/runs/40498072537 (`c88f7d2514`)
+
+Both failures occurred **after** analytical/numerical unittest and bank-export smoke tests passed. The new benchmark was invoked as
+`python scripts/reference_coherence_validation.py` and Python resolved
+`sys.path[0]` to `scripts/`, making the sibling `pulsejet_bank` package
+unavailable. Actual failure: `ModuleNotFoundError: No module named 'pulsejet_bank'`.
+No scientific metric assertion failed.
+
+**Fix:** change CI to invoke the script as a package-root module:
+`python -m scripts.reference_coherence_validation --output /tmp/reference_coherence.json`
+(commit `9c2537f3ae2265fbf82966d1daa82550e5eaf05e`).
+
+**Successful rerun:**
+https://github.com/Rouhin1997/Template_bank_generator_codes_for_PULSEJET_beta/actions/runs/40498168746
+- **Result:** `success`, all workflow steps passed.
+- **17 / 17** CPU unit and numerical tests passed; Python compilation
+  and CLI bank/export checks passed.
+- Independently generated **12 phase-coherence comparison cases**:
+  local predicted mismatch `mu in {0.01,0.03,0.10,0.30}`
+  × {acceleration-only, jerk-only, mixed-equal-metric},
+  `f=383 Hz`, `T=505.2902701172523 s`, 4,096 phase samples each.
+- **Maximum absolute numeric-coherent-loss versus quadratic-metric
+  difference for targets mu≤0.10:** `0.005533032382306`
+  (reported by the actual CI benchmark).
+- At `mu=0.30`, the quadratic approximation is visibly less exact.
+  An independent local reference evaluation showed numerical
+  coherent-power losses about `0.2639` (acceleration only),
+  `0.2630` (jerk only), and `0.2538` (mixed) versus quadratic
+  estimate 0.30; these illustrate a **local metric's breakdown
+  at larger offsets**, not a bug or a PULSEJET measured S/N.
+  Exact benchmark rows are in the archived JSON file.
+- **Three saved CI artifacts**, uploaded as one
+  `midpoint-bank-reference` archive:
+  `test_bank_aj.txt`, `test_bank_report.json`,
+  `reference_coherence.json`.
+  [Artifact download](https://github.com/Rouhin1997/Template_bank_generator_codes_for_PULSEJET_beta/actions/runs/40498168746/artifacts/12730768307),
+  artifact ID `12730768307`; retention through
+  **2027-01-25**, after which the source + commands here regenerate it.
+
+**Interpretation:** we now have repeatable CPU-level mathematical and
+bank-file validation, including a numerical estimate of where the
+small-mismatch approximation stops being quantitatively precise.
+No template from this new generator has yet been fed into the actual
+PULSEJET GPU binary. No model-space coverage test measures
+observational detection completeness. No changes to PULSEJET source,
+container, or third-party distillers occurred.
