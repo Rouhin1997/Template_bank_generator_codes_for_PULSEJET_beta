@@ -196,3 +196,27 @@ No template from this new generator has yet been fed into the actual
 PULSEJET GPU binary. No model-space coverage test measures
 observational detection completeness. No changes to PULSEJET source,
 container, or third-party distillers occurred.
+
+
+## 2026-10-27 — Off-grid W3/I15 coverage regression
+
+The bank designed for `f=383Hz, T=505.2902701172523s`,
+`a∈[-255,-215]`, `j∈[-0.4,0.25]`, `mu=0.30`,
+has 12 centre-of-cell templates; the actual W3/I15 injected
+`a=-235 m/s², j=-0.25 m/s³` is **not present** in the bank.
+
+The two nearest reference templates are
+`(-240,-0.2916666666666667)` and
+`(-230,-0.2916666666666667)`, both at
+`mu_pred=0.16431401102179768`. This number is a **computed local
+quadratic coherent-power mismatch**, not a PULSEJET recovery statistic.
+It demonstrates a quantitative *off-grid* reference case that can
+later be searched on the GPU to test whether measured spectral-S/N loss
+follows the metric prediction.
+
+A new unit regression in `tests/test_bank.py` asserts that truth is
+absent from the bank yet has predicted mismatch below the requested
+bound. **CI run:** https://github.com/Rouhin1997/Template_bank_generator_codes_for_PULSEJET_beta/actions/runs/40498423240,
+commit `f35e2d0cb7ad5cd71987496bf872fddf523e2343`, **success**
+(18 mathematical, generator and interface tests). GPU search and
+independent recovered-candidate folding remain pending.
