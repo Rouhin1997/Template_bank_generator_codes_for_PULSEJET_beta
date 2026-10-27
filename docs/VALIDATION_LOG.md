@@ -314,3 +314,23 @@ All runs exited normally. Each standalone nearest-template search took 10 s exte
 The predicted μ=0.164314 is a *quadratic approximation to fundamental coherent power loss*, not expected to equal eight-harmonic search-S/N loss. A controlled mismatch-versus-harmonic study will be needed before claiming harmonic-aware bank tolerance or population efficiency. Current test demonstrates the **generator-to-PULSEJET readback-to-GPU integration with off-grid truth and nearest-template robustness** for one injected signal in realistic observational background.
 
 Complete GPU details have been appended to `PULSEJET_beta/docs/paper/PULSEJET_VALIDATION_LOG.md`, commit `ccfa1bf260c36c35bf476daa61c5484c07106383`. Original source and injected .fil were not modified.
+
+
+## 2026-10-27 — Harmonic-stage S/N comparison confirms need for practical mismatch calibration
+
+Independent real-A40 GPU controls used W3/I15 injected source (f=383 Hz, DM8, true midpoint a=−235m/s², j=−0.25m/s³) and the actual generated off-grid nearest-B row (a=−230m/s², j=−0.2916666666666667m/s³), predicted fundamental **quadratic coherent power metric μ=0.164314**. Same input W3 MeerKAT injection, fixed DM, centered 505.2902701172523s segment, and pinned PULSEJET image throughout. The four one-template searches varied only motion correction and harmonic-sum stage count:
+
+| Parameters | `-n 1` best near 383Hz | `-n 4` best near 383Hz |
+|---|---:|---:|
+| **Matched (true a,j)** | f=382.999664Hz, S/N **18.93**, `nh=1` (2-harmonic stage) | f=382.999908Hz, S/N **36.15**, `nh=3` (8-harmonic stage) |
+| **Generated off-grid nearest B** | f=382.999664Hz, S/N **18.31**, `nh=1` (2-harmonic stage) | f=383.000153Hz, S/N **25.15**, `nh=3` (8-harmonic stage) |
+| **Off-grid/truth S/N ratio** | **0.9671** | **0.6956** |
+| **Observed search S/N reduction** | **3.29%** | **30.44%** |
+
+This isolated variation strongly supports the hypothesis that **high-harmonic detection is more vulnerable to a/j template mismatch** than low-harmonic detection. It additionally shows why the generator's single fundamental-frequency quadratic-power μ is **not** a calibrated fractional reduction in PULSEJET's final harmonic-summed search S/N. `-n 4` *permits* up to 16-harmonic sums, but both best candidates use `nh=3`, corresponding to 8 harmonics; `-n 1` selects 2 harmonics. These search statistics need not directly equal Fourier coherent power at one harmonic.
+
+**Interpretation caveat:** no isolated per-harmonic coherent Fourier amplitudes were measured; search statistics incorporate harmonic summing, Fourier peak maximization, normalization and candidate selection. The generator's analytical metric remains validated as a *local leading-order fundamental coherent-power metric*, not as a pipeline sensitivity/completeness guarantee.
+
+**Data provenance:** `/home/rnag/PULSEJET_validation/stage8_m62_generated_bank/w3_i15_dm8_harmonic_sensitivity_pairs_center8m_v1_provenance.txt` on node3; source W3/I15 truth and generated bank SHA pinned in earlier sections. Full GPU results logged in PULSEJET beta repository commit `cdad70df0716349217a0f06d3138c4bd07fd966c`.
+
+**Open scientific design question:** prior to selecting broad-bank coverage tolerances, quantify S/N loss against nearest-template mismatch over several offsets and controlled harmonic-stage configurations, rather than assuming μ=0.30 permits <30% multi-harmonic spectral-S/N loss. Potential harmonic-aware bank design needs careful GPU-cost tradeoffs; scaling `f_design` by factor k may increase two-dimensional template count by ~k² for large boxes.
