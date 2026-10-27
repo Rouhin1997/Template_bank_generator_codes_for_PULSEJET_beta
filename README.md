@@ -252,7 +252,15 @@ For this example, the analytical coefficients are about
 `g_aa=0.00583374` (m/s²)⁻² and `g_jj=10.6390` (m/s³)⁻².
 The deterministic grid has `4 × 3 = 12` templates and a maximum
 quadratic-metric mismatch bound of approximately **0.270704**,
-below the requested 0.30. The grid's observed sample coverage must
+below the requested 0.30.
+
+This is already an illustrative **off-grid injection** experiment: the
+I15 truth `(a,j)=(-235,-0.25)` is **not** a grid point. Its nearest
+templates are `(-240,-0.2916667)` and `(-230,-0.2916667)`, with
+predicted local quadratic mismatch **0.164314**. That value will be
+directly testable against PULSEJET's measured search-statistic loss
+when we begin actual generator-to-GPU integration; it is not itself
+an observed recovery result. The grid's observed sample coverage must
 also be measured and stored in the report. We intentionally do not
 equate this numerical metric bound with measured PULSEJET S/N loss.
 
