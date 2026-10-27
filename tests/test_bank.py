@@ -58,6 +58,15 @@ class BankGenerationTest(unittest.TestCase):
                 write_bank(path,bank)
             self.assertEqual(write_bank(path,bank,overwrite=True),digest)
 
+    def test_i15_truth_is_covered_without_exact_truth_template(self):
+        """Control example: make a genuine off-grid injected source."""
+        bank = make_grid(self.spec)
+        truth = (-235.0,-0.25)  # W3/I15; explicitly NOT inserted
+        self.assertNotIn(truth,bank)
+        mismatch = nearest_metric_mismatch(truth,bank,self.spec.metric)
+        self.assertAlmostEqual(mismatch,0.16431401102179768,places=12)
+        self.assertLessEqual(mismatch,self.spec.max_mismatch)
+
     def test_invalid_inputs_rejected(self):
         with self.assertRaises(ValueError):
             BankSpec(383,505,2,-2,-1,1,.3)
