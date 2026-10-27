@@ -296,3 +296,21 @@ On `node3`, user ran PULSEJET `scripts/run_m62_w3_i15_generated_bank_integration
 `/home/rnag/PULSEJET_validation/stage8_m62_generated_bank/w3_i15_dm8_generated_grid12_center8m_v1/overview.xml`, corresponding `.log`, `_provenance.txt`. The existing W3 injected `.fil`, generated bank, original legacy generator, PULSEJET source/kernels, third-party distillers and pinned image were **not** edited for this experiment.
 
 **Next:** isolate the two nearest templates with single-template GPU controls, check possible harmonic-level effects on template tolerance, and then expand to a common envelope/DM grid with injected truths deliberately off-grid. No broad completeness claim yet.
+
+
+## 2026-10-27 — Two equal-distance off-grid nearest templates independently confirmed on A40
+
+Paired GPU search source: `PULSEJET_beta/scripts/run_m62_w3_i15_generated_bank_nearest_controls.sh` on node3, same existing W3/I15 injected filterbank, pinned image, DM8, exactly centered 8,388,608-sample segment, unchanged workaround frequency range 187–395 Hz. Each control used one of the **actual** two nearest templates from externally generated `w3_i15_reference.txt` (SHA256 `969af3da3f5a271d36af4ed98808a6d68337592eaa1d127a5159faf95a02a29f`) chosen programmatically, with no injected truth row in either bank.
+
+| Template | a (m/s²) | j (m/s³) | Local predicted μ (fundamental coherent power) | Recovered f (Hz) | PULSEJET search S/N | `nh` stage |
+|---|---:|---:|---:|---:|---:|---:|
+| One-row nearest A | −240 | −0.2916666666666667 | 0.164314 | 383.000153 | 24.98 | 3 (8 harmonics) |
+| One-row nearest B | −230 | −0.2916666666666667 | 0.164314 | 383.000153 | 25.15 | 3 (8 harmonics) |
+| Full generated 12-row bank | −230 | −0.2916666666666667 | 0.164314 | 383.000153 | 25.15 | 3 (8 harmonics) |
+| Previously validated truth row | −235 | −0.25 | 0 | 382.999908 | 36.15 | 3 (8 harmonics) |
+
+All runs exited normally. Each standalone nearest-template search took 10 s external wall. Compared to matched-truth S/N 36.15, nearest A lost **30.9087%**, nearest B **30.4354%** in **harmonic-summed spectral search S/N**. The two equally metric-distant templates differ by only 0.17 S/N (~0.68% of B S/N), reassuring but not statistically establishing global predictive metric accuracy. Most importantly, the full bank returned **exactly** the one-template B result: cross-template Doppler candidate distillation did **not** cause the observed mismatch-related S/N reduction in this case.
+
+The predicted μ=0.164314 is a *quadratic approximation to fundamental coherent power loss*, not expected to equal eight-harmonic search-S/N loss. A controlled mismatch-versus-harmonic study will be needed before claiming harmonic-aware bank tolerance or population efficiency. Current test demonstrates the **generator-to-PULSEJET readback-to-GPU integration with off-grid truth and nearest-template robustness** for one injected signal in realistic observational background.
+
+Complete GPU details have been appended to `PULSEJET_beta/docs/paper/PULSEJET_VALIDATION_LOG.md`, commit `ccfa1bf260c36c35bf476daa61c5484c07106383`. Original source and injected .fil were not modified.
